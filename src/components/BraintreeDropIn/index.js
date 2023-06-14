@@ -1,9 +1,11 @@
 import React, {useEffect, useState} from 'react'
 import './index.css';
 import dropin from "braintree-web-drop-in"
+import { toast } from 'react-toastify';
+
 
 function BraintreeDropIn(props) {
-    const { show, onPaymentCompleted, clientToken } = props;
+    const { show, onPaymentCompleted, clientToken, invoice } = props;
 
     const [braintreeInstance, setBraintreeInstance] = useState(undefined)
 
@@ -48,11 +50,10 @@ function BraintreeDropIn(props) {
                   vaultManager: true
             }, function (error, instance) {
                 if (error)
-                    console.error(error)
+                  console.log(error)
                 else
                     setBraintreeInstance(instance);
             });
-
             if (braintreeInstance) {
                 braintreeInstance
                     .teardown()
@@ -72,17 +73,15 @@ function BraintreeDropIn(props) {
             <div
                 id={"braintree-drop-in-div"}
             />
-
             <button
-                className={"braintreePayButton"}
-                type="primary"
+                className={`bg-sky-600 text-white text-base w-full py-2 rounded-md`}
                 disabled={!braintreeInstance}
                 onClick={() => {
                     if (braintreeInstance) {
                         braintreeInstance.requestPaymentMethod(
                             (error, payload) => {
                                 if (error) {
-                                    console.error(error);
+                                  toast.error(error.message);
                                 } else {
                                     var myHeaders = new Headers();
                                     myHeaders.append("Content-Type", "application/json");
@@ -101,11 +100,19 @@ function BraintreeDropIn(props) {
                                       redirect: 'follow'
                                     };
                                     
-                                    fetch(`${process.env.REACT_APP_SERVER_DOMAIN}/api/v1/publish/purchase-braintree/648`, requestOptions)
+                                    fetch(`${process.env.REACT_APP_SERVER_DOMAIN}/api/v1/publish/purchase-braintree/${invoice.invoice_id}`, requestOptions)
                                       .then(response => response.text())
-                                      .then(result => console.log(result))
-                                      .catch(error => console.log('error', error));
-                                    onPaymentCompleted();
+                                      .then(result => {
+                                        let data = JSON.parse(result);
+                                        if (data.success) {
+                                          onPaymentCompleted();
+                                        } else {
+                                          toast.error(data.error_message.length > 0 ? data.error_message[0] : "Transation failed!")
+                                        }
+                                      })
+                                      .catch(error => {
+                                        console.log(error)
+                                      });
                                 }
                             });
                     }
