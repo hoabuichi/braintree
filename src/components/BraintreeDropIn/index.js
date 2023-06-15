@@ -5,54 +5,67 @@ import { toast } from 'react-toastify';
 
 
 function BraintreeDropIn(props) {
-    const { show, onPaymentCompleted, clientToken, invoice } = props;
-
+    const { show, clientToken, invoice } = props;
+    const [isPayBtnDisable, setIsPayBtnDisable] = useState(true)
     const [braintreeInstance, setBraintreeInstance] = useState(undefined)
 
     useEffect(() => {
-        if (show) {
+        if (show && invoice) {
             const initializeBraintree = () => dropin.create({
                 authorization: clientToken, // insert your tokenization key or client token here
                 container: '#braintree-drop-in-div',
                 paypal: {
-                    flow: 'checkout',
-                    amount: '10.00', // be sure to validate this amount on your server
-                    currency: 'USD',
-                    landingPageType: 'login' // hard code this so we get a consistent experience for e2e tests
-                  },
-                  paypalCredit: {
-                    flow: 'checkout',
-                    amount: '10.00',
-                    currency: 'USD',
-                    landingPageType: 'login' // hard code this so we get a consistent experience for e2e tests
-                  },
-                  applePay: {
-                    displayName: 'Braintree Test',
-                    paymentRequest: {
-                      total: {
-                        label: 'Braintree Test Store',
-                        amount: '19.99'
-                      }
-                    }
-                  },
-                  googlePay: {
-                    // merchantId: 'merchant-id', // prod id goes here
-                    googlePayVersion: 2,
-                    transactionInfo: {
-                      currencyCode: 'USD',
-                      totalPriceStatus: 'FINAL',
-                      totalPrice: '19.99'
-                    }
-                  },
-                  venmo: {
-                    allowDesktop: true
-                  },
-                  vaultManager: true
+                flow: 'checkout',
+                amount: invoice.amount_currency, // be sure to validate this amount on your server
+                currency: invoice.currency_code ?? 'USD',
+                landingPageType: 'login' // hard code this so we get a consistent experience for e2e tests
+              },
+              paypalCredit: {
+                flow: 'checkout',
+                amount: invoice.amount_currency,
+                currency: invoice.currency_code ?? 'USD',
+                landingPageType: 'login' // hard code this so we get a consistent experience for e2e tests
+              },
+              applePay: {
+                displayName: 'Braintree Test',
+                paymentRequest: {
+                  total: {
+                    label: 'Braintree Test Store',
+                    amount: '19.99'
+                  }
+                }
+              },
+              googlePay: {
+                // merchantId: 'merchant-id', // prod id goes here
+                googlePayVersion: 2,
+                transactionInfo: {
+                  currencyCode: invoice.currency_code ?? 'USD',
+                  totalPriceStatus: 'FINAL',
+                  totalPrice: invoice.amount_currency
+                }
+              },
+              venmo: {
+                allowDesktop: true
+              },
+              vaultManager: true,
             }, function (error, instance) {
                 if (error)
                   console.log(error)
                 else
                     setBraintreeInstance(instance);
+                    instance.on('changeActiveView', function (event) {
+                      console.log('change active view', event);
+                      if (event.newViewId === 'options') {
+                        instance.clearSelectedPaymentMethod();
+                      }
+                    });
+                    instance.on('paymentMethodRequestable', function (event) {
+                      setIsPayBtnDisable(false);
+                    });
+            
+                    instance.on('noPaymentMethodRequestable', function (event) {
+                      setIsPayBtnDisable(true);
+                    });
             });
             if (braintreeInstance) {
                 braintreeInstance
@@ -64,6 +77,7 @@ function BraintreeDropIn(props) {
                 initializeBraintree();
             }
         }
+    // eslint-disable-next-line
     }, [show, clientToken])
 
     return (
@@ -74,8 +88,8 @@ function BraintreeDropIn(props) {
                 id={"braintree-drop-in-div"}
             />
             <button
-                className={`bg-sky-600 text-white text-base w-full py-2 rounded-md`}
-                disabled={!braintreeInstance}
+                className={isPayBtnDisable ? 'bg-neutral-500 text-white text-base w-full py-2 rounded-md cursor-not-allowed' : 'bg-sky-600 text-white text-base w-full py-2 rounded-md'}
+                disabled={isPayBtnDisable}
                 onClick={() => {
                     if (braintreeInstance) {
                         braintreeInstance.requestPaymentMethod(
@@ -105,7 +119,7 @@ function BraintreeDropIn(props) {
                                       .then(result => {
                                         let data = JSON.parse(result);
                                         if (data.success) {
-                                          onPaymentCompleted();
+                                          setIsPayBtnDisable(true);
                                         } else {
                                           toast.error(data.error_message.length > 0 ? data.error_message[0] : "Transation failed!")
                                         }
