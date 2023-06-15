@@ -2,12 +2,16 @@ import React, {useEffect, useState} from 'react'
 import './index.css';
 import dropin from "braintree-web-drop-in"
 import { toast } from 'react-toastify';
+import CheckoutSuccess from '../checkoutResult';
 
 
 function BraintreeDropIn(props) {
     const { show, clientToken, invoice } = props;
     const [isPayBtnDisable, setIsPayBtnDisable] = useState(true)
     const [braintreeInstance, setBraintreeInstance] = useState(undefined)
+    const [isSuccess, setIsSuccess] = useState(true);
+    const [errMsg, setErrMsg] = useState(true);
+    const [isFinished, setIsFinished] = useState(false);
 
     useEffect(() => {
         if (show && invoice) {
@@ -83,7 +87,9 @@ function BraintreeDropIn(props) {
     return (
         <div
             style={{display: `${show ? "block" : "none"}`}}
-        >
+        > 
+          {isFinished ? <CheckoutSuccess isSuccess={isSuccess} errMsg={errMsg} /> : 
+            <>
             <div
                 id={"braintree-drop-in-div"}
             />
@@ -119,10 +125,13 @@ function BraintreeDropIn(props) {
                                       .then(result => {
                                         let data = JSON.parse(result);
                                         if (data.success) {
+                                          setIsSuccess(true)
                                           setIsPayBtnDisable(true);
                                         } else {
-                                          toast.error(data.error_message.length > 0 ? data.error_message[0] : "Transation failed!")
+                                          setIsSuccess(false);
+                                          setErrMsg(data.error_message.length > 0 ? data.error_message[0] : "Transation failed")
                                         }
+                                        setIsFinished(true);
                                       })
                                       .catch(error => {
                                         console.log(error)
@@ -136,6 +145,8 @@ function BraintreeDropIn(props) {
                     "Pay"
                 }
             </button>
+            </>
+          }
         </div>
     )
 }
